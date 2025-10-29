@@ -7,6 +7,7 @@ from nav_msgs.msg import Odometry
 import tf_transformations
 from math import sqrt
 import numpy as np
+import math
 class controller(Node):
     
     def __init__(self):
@@ -14,8 +15,8 @@ class controller(Node):
         self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
         
         self.goal=[6.5,3,0.5]
-        self.parameters={"max_vel_ang":[0,0,1.57], "max_vel_lin":[0.22, 0, 0], "freq":5.0,
-                         "max_angle":[1.57,4.71], "threshold":0.5}
+        self.parameters={"max_vel_ang":[0,0,0.5], "max_vel_lin":[0.02, 0, 0], "freq":5.0,
+                         "max_angle":[1.57,4.71], "threshold":0.25}
         self.timer_period = float(1/(self.parameters["freq"]))
         self.distance_towards=0.0
         self.distances={}
@@ -95,6 +96,8 @@ class controller(Node):
 
         for i in range(0,len(ranges)):
             angle = angle_min + i * angle_increment
+            if math.isnan(ranges[i]==True): continue
+
             if np.isinf(ranges[i]) or ranges[i]>max_range:
                 distance = max_range
             else:
@@ -108,16 +111,20 @@ class controller(Node):
                     n_left +=1
                     sum_left+=distance
                     #mettere un flag per far virare lievemente a sinistra o destra se il lato del robot si avvicina troppo a un ostacolo
-                    if ranges[i]<self.parameters["threshold"]/2 and 0<angle<=1.57/2:
+                    if ranges[i]<self.parameters["threshold"] and 3.14/6 <angle<=3.14/2:
                         self.flag_adjust[0]=True
                 if 4.71<=angle<=6.28:
                     n_right +=1
                     sum_right+=distance
-                    if ranges[i]<self.parameters["threshold"]/2 and 5.50<=angle<=6.28 :
+                    if ranges[i]<self.parameters["threshold"] and angle_max - 3.14/2 <=angle<= angle_max- 3.14/6:
                         self.flag_adjust[1]=True
-
-        self.avgs[0]=sum_left/n_left
-        self.avgs[1]=sum_right/n_right
+        if n_left==0: 
+            self.avgs[0]=0
+        else :
+            self.avgs[0]=sum_left/n_left
+        if n_right==0: self.avgs[1]=0
+        else :
+            self.avgs[1]=sum_right/n_right
         self.distances = distances
 
         #self.get_logger().info(f"Distance from obstacle : {self.distance_towards}")
